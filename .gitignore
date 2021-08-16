@@ -1,0 +1,10 @@
+/.vs
+/.vscode
+/.idea
+/.pycache
+/__pycache__
+
+*.html
+*.log
+keys.txt
+/temp
