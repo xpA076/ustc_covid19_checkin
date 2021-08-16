@@ -10,7 +10,7 @@ User_Agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 
 def load_users(_path):
     _users = []
-    with open(_path, 'r') as r:
+    with open(_path, 'r', encoding='UTF-8') as r:
         lines = r.readlines()
         for line in lines:
             line = line.replace(' ', '')
@@ -246,7 +246,7 @@ def auto_checkin(userinfo):
 if __name__ == '__main__':
     path = 'keys.txt'
     users = load_users(path)
-    print_with_time(str(users) + ' users found in ' + path)
+    print_with_time(str(len(users)) + ' user(s) found in ' + path)
 
     if len(sys.argv) > 1:
         try:
