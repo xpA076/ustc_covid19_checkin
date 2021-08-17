@@ -68,6 +68,7 @@ def build_report_form(token, postcode, now_status):
         'last_touch_sars_date': '',
         'last_touch_sars_detail': '',
         'is_danger': '0',
+        'is_goto_danger': '0',
         'other_detail': ''
     }
     form_str = ''
@@ -259,6 +260,7 @@ if __name__ == '__main__':
                 i = int(arg)
                 auto_checkin(users[i])
     else:
-        for user in users:
-            auto_checkin(user)
-            time.sleep(60)
+        for i in range(len(users)):
+            auto_checkin(users[i])
+            if i < len(users) - 1:
+                time.sleep(60)
