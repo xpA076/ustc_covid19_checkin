@@ -22,6 +22,9 @@ def load_users(_path):
                 'password': spl[1],
                 'now_status': spl[2],
                 'postcode': spl[3],
+                'emg_name': spl[4],
+                'emg_relation': spl[5],
+                'emg_mobile': spl[6],
             })
         return _users
 
@@ -44,13 +47,15 @@ def print_with_time(print_text):
 #   1-正常在校园内, 2-正常在家, 3-居家留观, 4-集中留观, 5-住院治疗, 6-其它
 # 若地址编号为 340100(合肥), 需添加在校信息：
 #   2-东区, 3-南区, 4-中区, 5-北区, 6-西区, 7-先研院, 8-国金院, 9-其他院区, 0-校外
-def build_report_form(token, postcode, now_status):
+def build_report_form(token, userinfo):
+    postcode = userinfo['postcode']
+    now_status = userinfo['now_status']
     now_province = postcode[0:2] + '0000'
     now_city = postcode[0:4] + '00'
     now_country = postcode
     form_dict = {
         '_token': token,
-        'now_address': '1',# 内地
+        'now_address': '1',  # 内地
         'gps_now_address': '',
         'now_province': now_province,
         'gps_province': '',
@@ -69,6 +74,9 @@ def build_report_form(token, postcode, now_status):
         'last_touch_sars_detail': '',
         'is_danger': '0',
         'is_goto_danger': '0',
+        'jinji_lxr': userinfo['emg_name'],
+        'jinji_guanxi': userinfo['emg_relation'],
+        'jiji_mobile': userinfo['emg_mobile'],
         'other_detail': ''
     }
     form_str = ''
@@ -225,9 +233,9 @@ def auto_checkin(userinfo):
     header_report['Origin'] = 'https://weixine.ustc.edu.cn'
     header_report['Content-Type'] = 'application/x-www-form-urlencoded'
     # 填写表单 data
-    report_data = build_report_form(info['token'], userinfo['postcode'], userinfo['now_status'])
+    report_data = build_report_form(info['token'], userinfo)
     print('Posting ' + url + ' ...')
-    resp = requests.post(url, data=report_data, headers=header_report, cookies=cookies_checkin,
+    resp = requests.post(url, data=report_data.encode('utf-8'), headers=header_report, cookies=cookies_checkin,
                          allow_redirects=False)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
 
@@ -240,8 +248,6 @@ def auto_checkin(userinfo):
 
     print_with_time(info['uid'] + ' last check in : ' + info['time'])
     print_with_time('Finish')
-
-
 
 
 if __name__ == '__main__':
