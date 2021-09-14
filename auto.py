@@ -4,6 +4,7 @@ import time
 import sys
 import getopt
 from html_parser import *
+from predict_vcode import predict
 
 User_Agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36'
 
@@ -41,6 +42,10 @@ def print_with_time(print_text):
     month_str = time.strftime("%Y-%m", time.localtime())
     with open('checkin-' + month_str + '.log', 'a+') as log_f:
         log_f.write(whole_str + '\n')
+
+
+
+
 
 
 # now_status 对应当前状态:
@@ -133,6 +138,9 @@ def auto_checkin(userinfo):
     cookie_dict_passport = {}
     cookie_dict_passport = update_cookies(cookie_dict_passport, resp.cookies.get_dict().items())
 
+    # 创建登录表单 (含验证码识别)
+    login_form_str = build_login_form(resp.text, userinfo, cookie_dict_passport['JSESSIONID'])
+
     url = 'https://passport.ustc.edu.cn/login'
     header['Referer'] = 'https://passport.ustc.edu.cn/login?service=https%3A%2F%2Fweixine.ustc.edu.cn%2F2020%2Fcaslogin'
     header_post = header.copy()
@@ -140,21 +148,12 @@ def auto_checkin(userinfo):
     header_post['Content-Type'] = 'application/x-www-form-urlencoded'
     header_post['Origin'] = 'https://passport.ustc.edu.cn'
     print('Posting ' + url + ' ...')
-    resp = requests.post(url,
-                         data='model=uplogin.jsp&service=https%3A%2F%2Fweixine.ustc.edu.cn%2F2020%2Fcaslogin&warn'
-                              '=&showCode=&username=' + userinfo['username'] + '&password=' + userinfo['password'] + '&button=',
-                         headers=header_post,
-                         cookies=cookie_dict_passport,
-                         allow_redirects=False)
+    resp = requests.post(url, data=login_form_str, headers=header_post, cookies=cookie_dict_passport, allow_redirects=False)
     # response 302, header的location项中含名为ticket的token, 和 weixine 下的 cookie 一起提交完成身份验证
     try:
         url = resp.headers['location']
         if re.search(r'ticket=ST', url) is None:
             raise BaseException('cannot get CAS-ticket')
-        '''
-        if resp.status_code != 302:
-
-            '''
     except BaseException as e:
         print_with_time('Authentication failure')
         print(e)

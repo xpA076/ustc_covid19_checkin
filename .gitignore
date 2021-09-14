@@ -3,6 +3,7 @@
 /.idea
 /.pycache
 /__pycache__
+/images
 
 *.html
 *.log
