@@ -3,10 +3,28 @@ import re
 import time
 import sys
 import getopt
+import base64
 from html_parser import *
-from predict_vcode import predict
+
 
 User_Agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36'
+
+
+def print1(line):
+    print(line, flush=True)
+
+
+def parse_info_str(line):
+    spl = line.split(',')
+    return {
+        'username': spl[0],
+        'password': spl[1],
+        'now_status': spl[2],
+        'postcode': spl[3],
+        'emg_name': spl[4],
+        'emg_relation': spl[5],
+        'emg_mobile': spl[6],
+    }
 
 
 def load_users(_path):
@@ -17,16 +35,7 @@ def load_users(_path):
             line = line.replace(' ', '')
             if (len(line) == 0) or (re.match(r'^[A-Z]{2}\d{8},[^,]*,(\d|\d-\d),\d{6}', line) is None):
                 continue
-            spl = line.split(',')
-            _users.append({
-                'username': spl[0],
-                'password': spl[1],
-                'now_status': spl[2],
-                'postcode': spl[3],
-                'emg_name': spl[4],
-                'emg_relation': spl[5],
-                'emg_mobile': spl[6],
-            })
+            _users.append(parse_info_str(line))
         return _users
 
 
@@ -38,7 +47,7 @@ def update_cookies(cookies_dict, new_cookies_dict):
 
 def print_with_time(print_text):
     whole_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + ' -> ' + print_text
-    print(whole_str)
+    print(whole_str, flush=True)
     month_str = time.strftime("%Y-%m", time.localtime())
     with open('checkin-' + month_str + '.log', 'a+') as log_f:
         log_f.write(whole_str + '\n')
@@ -94,7 +103,7 @@ def build_report_form(token, userinfo):
 
 
 def auto_checkin(userinfo):
-    print_with_time('Start')
+    print_with_time(userinfo['username'] + ' checkin start')
     header = {
         'Host': 'weixine.ustc.edu.cn',
         'Connection': 'keep-alive',
@@ -112,12 +121,12 @@ def auto_checkin(userinfo):
 
     cookies_checkin = {}
     url = 'https://weixine.ustc.edu.cn/2020/'
-    print('Getting ' + url + ' ...')
+    print1('Getting ' + url + ' ...')
     resp = requests.get(url, headers=header)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
 
     url = 'https://weixine.ustc.edu.cn/2020/login'
-    print('Getting ' + url + ' ...')
+    print1('Getting ' + url + ' ...')
     resp = requests.get(url, headers=header)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
 
@@ -125,7 +134,7 @@ def auto_checkin(userinfo):
     url = 'https://weixine.ustc.edu.cn/2020/caslogin'
     header['Sec-Fetch-Site'] = 'same-origin'
     header['Referer'] = url
-    print('Getting ' + url + ' ...')
+    print1('Getting ' + url + ' ...')
     # 返回302, 禁止自动跳转
     resp = requests.get(url, headers=header, cookies=cookies_checkin, allow_redirects=False)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
@@ -133,13 +142,14 @@ def auto_checkin(userinfo):
     url = 'https://passport.ustc.edu.cn/login?service=https%3A%2F%2Fweixine.ustc.edu.cn%2F2020%2Fcaslogin'
     header['Host'] = 'passport.ustc.edu.cn'
     # header['Sec-Fetch-Site'] = 'same-site'
-    print('Getting ' + url + ' ...')
+    print1('Getting ' + url + ' ...')
     resp = requests.get(url, headers=header, allow_redirects=False)
     cookie_dict_passport = {}
     cookie_dict_passport = update_cookies(cookie_dict_passport, resp.cookies.get_dict().items())
 
     # 创建登录表单 (含验证码识别)
-    login_form_str = build_login_form(resp.text, userinfo, cookie_dict_passport['JSESSIONID'])
+    login_form_str = build_login_form(resp.text, userinfo, cookie_dict_passport['JSESSIONID'],
+                                      service='https%3A%2F%2Fweixine.ustc.edu.cn%2F2020%2Fcaslogin')
 
     url = 'https://passport.ustc.edu.cn/login'
     header['Referer'] = 'https://passport.ustc.edu.cn/login?service=https%3A%2F%2Fweixine.ustc.edu.cn%2F2020%2Fcaslogin'
@@ -147,7 +157,7 @@ def auto_checkin(userinfo):
     header_post['Cache-Control'] = 'max-age=0'
     header_post['Content-Type'] = 'application/x-www-form-urlencoded'
     header_post['Origin'] = 'https://passport.ustc.edu.cn'
-    print('Posting ' + url + ' ...')
+    print1('Posting ' + url + ' ...')
     resp = requests.post(url, data=login_form_str, headers=header_post, cookies=cookie_dict_passport, allow_redirects=False)
     # response 302, header的location项中含名为ticket的token, 和 weixine 下的 cookie 一起提交完成身份验证
     try:
@@ -155,33 +165,33 @@ def auto_checkin(userinfo):
         if re.search(r'ticket=ST', url) is None:
             raise BaseException('cannot get CAS-ticket')
     except BaseException as e:
-        print_with_time('Authentication failure')
-        print(e)
-        exit(0)
-    print_with_time('Authentication success')
+        print_with_time('{0} authentication failed'.format(userinfo['username']))
+        print1(e)
+        exit(1)
+    print_with_time('{0} authentication success'.format(userinfo['username']))
 
     header['Host'] = 'weixine.ustc.edu.cn'
     header['Sec-Fetch-Site'] = 'same-site'
     header['Cache-Control'] = 'max-age=0'
     header['Referer'] = 'https://passport.ustc.edu.cn/login'
-    print('Getting ' + url + ' ...')
+    print1('Getting ' + url + ' ...')
     resp = requests.get(url, headers=header, cookies=cookies_checkin, allow_redirects=False)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
 
     url = 'https://weixine.ustc.edu.cn/2020/caslogin'
-    print('Getting ' + url + ' ...')
+    print1('Getting ' + url + ' ...')
     resp = requests.get(url, headers=header, cookies=cookies_checkin, allow_redirects=False)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
 
     url = 'https://weixine.ustc.edu.cn/2020/'
     header.pop('Referer')
-    print('Getting ' + url + ' ...')
+    print1('Getting ' + url + ' ...')
     resp = requests.get(url, headers=header, cookies=cookies_checkin, allow_redirects=False)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
 
     url = 'https://weixine.ustc.edu.cn/2020/home'
     header['Sec-Fetch-Site'] = 'cross-site'
-    print('Getting ' + url + ' ...')
+    print1('Getting ' + url + ' ...')
     resp = requests.get(url, headers=header, cookies=cookies_checkin, allow_redirects=False)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
 
@@ -191,8 +201,8 @@ def auto_checkin(userinfo):
         return 'failed'
 
     # 获取页面 form 中 x_csrf_token 等相关信息
-    info = get_info(resp.text)
-    print_with_time(info['uid'] + ' last check in : ' + info['time'] + ', token : ' + info['token'])
+    info = parse_checkin_info(resp.text)
+    print_with_time('{0} last check in : {1}, token : {2}'.format(info['uid'], info['time'], info['token']))
 
     # 模拟网页的两个ajax请求
     header_ajax = {
@@ -214,12 +224,12 @@ def auto_checkin(userinfo):
     }
 
     url = 'https://weixine.ustc.edu.cn/2020/get_province'
-    print('Ajax ' + url + ' ...')
+    print1('Ajax ' + url + ' ...')
     resp = requests.post(url, headers=header_ajax, cookies=cookies_checkin)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
 
     url = 'https://weixine.ustc.edu.cn/2020/get_city/' + userinfo['postcode'][0:2] + '0000'
-    print('Ajax ' + url + ' ...')
+    print1('Ajax ' + url + ' ...')
     resp = requests.post(url, headers=header_ajax, cookies=cookies_checkin)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
 
@@ -233,38 +243,46 @@ def auto_checkin(userinfo):
     header_report['Content-Type'] = 'application/x-www-form-urlencoded'
     # 填写表单 data
     report_data = build_report_form(info['token'], userinfo)
-    print('Posting ' + url + ' ...')
+    print1('Posting ' + url + ' ...')
     resp = requests.post(url, data=report_data.encode('utf-8'), headers=header_report, cookies=cookies_checkin,
                          allow_redirects=False)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
 
     url = 'https://weixine.ustc.edu.cn/2020/home'
     header['Referer'] = 'https://weixine.ustc.edu.cn/2020/home'
-    print('Getting ' + url + ' ...')
+    print1('Getting ' + url + ' ...')
     resp = requests.get(url, headers=header, cookies=cookies_checkin, allow_redirects=False)
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
-    info = get_info(resp.text)
+    info = parse_checkin_info(resp.text)
 
-    print_with_time(info['uid'] + ' last check in : ' + info['time'])
-    print_with_time('Finish')
+    print_with_time('{0} last check in : {1}'.format(info['uid'], info['time']))
+    print_with_time('{0} checkin finished'.format(userinfo['username']))
+    exit(0)
 
 
 if __name__ == '__main__':
     path = 'keys.txt'
-    users = load_users(path)
-    print_with_time(str(len(users)) + ' user(s) found in ' + path)
 
     if len(sys.argv) > 1:
         try:
-            opts, args = getopt.getopt(sys.argv[1:], '-i:', 'idx=')
+            opts, args = getopt.getopt(sys.argv[1:], '-i:-u:', 'idx=')
         except getopt.GetoptError:
             print('input args error: auto.py -i <user index>')
             sys.exit(2)
         for opt, arg in opts:
             if opt in ('-i', '--idx'):
                 i = int(arg)
+                users = load_users(path)
+                print_with_time(str(len(users)) + ' user(s) found in ' + path)
                 auto_checkin(users[i])
+            if opt in ('-u'):
+                bs = bytes(arg.encode('utf-8'))
+                info_str = str(base64.b64decode(bs), encoding='utf-8')
+                auto_checkin(parse_info_str(info_str))
+
     else:
+        users = load_users(path)
+        print_with_time(str(len(users)) + ' user(s) found in ' + path)
         for i in range(len(users)):
             auto_checkin(users[i])
             if i < len(users) - 1:

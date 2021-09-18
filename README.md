@@ -3,8 +3,11 @@
 ### 需安装库:
 - requests
 - beautifulsoup4
+- opencv, numpy
   
-在目录下 keys.txt 文件中按行输入登录信息 以逗号分隔, 格式为:
+在目录下 keys.txt 文件中按行输入登录信息 以逗号分隔, 格式为: 
+
+(文件中不合格式的数据行均会被忽略)
 ```
 <学工号>,<密码>,<当前状态>,<地址编码>,<紧急联系人>,<紧急联系人关系>,<紧急联系人电话>
 ```
@@ -28,11 +31,11 @@ SA01001001,wodemima,2,430502,张三,父子,13012345678
 
 
 ### 运行脚本
-- keys.txt 文件指定用户打卡 :
+- keys.txt 文件指定用户打卡 (未指定 index 默认打卡所有合法数据行) :
 ```
 $ python auto.py -i [user_index]
 ```
-- 全部用户打卡 :
+- 用户信息打卡 (数据行转base64字符串) :
 ```
-$ python auto.py
+$ python auto.py -u [userinfo_base64_string]
 ```

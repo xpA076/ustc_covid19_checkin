@@ -13,7 +13,7 @@ def get_form_token(html_text):
     return token
 
 
-def get_info(html_text):
+def parse_checkin_info(html_text):
     bs_text = html_text.replace('</br>', '').replace('<br/>', '')
     try:
         bs = BeautifulSoup(bs_text, features="html.parser")
@@ -34,7 +34,7 @@ def get_info(html_text):
         return None
 
 
-def get_login_info(html_text):
+def parse_login_info(html_text):
     bs_text = html_text.replace('</br>', '').replace('<br/>', '')
     try:
         bs = BeautifulSoup(bs_text, features="html.parser")
@@ -52,12 +52,12 @@ def get_login_info(html_text):
         return None
 
 
-def build_login_form(html_text, userinfo, session_id):
-    info = get_login_info(html_text)
+def build_login_form(html_text, userinfo, session_id, service=''):
+    info = parse_login_info(html_text)
     form_dict = {
         'model': 'uplogin.jsp',
         'CAS_LT': info['cas_lt'],
-        'service': 'https%3A%2F%2Fweixine.ustc.edu.cn%2F2020%2Fcaslogin',
+        'service': service,
         'warn': '',
         'showCode': info['show_code'],
         'username': userinfo['username'],
@@ -71,7 +71,7 @@ def build_login_form(html_text, userinfo, session_id):
         print('require vcode ...')
         download_img('temp.jfif', session_id)
         ans = predict('temp.jfif', 'nn_data', 'nn1')
-        form_str = form_str + 'validate={0}{1}{2}{3}&'.format(ans[0], ans[1], ans[2], ans[3])
+        form_str = form_str + 'LT={0}{1}{2}{3}&'.format(ans[0], ans[1], ans[2], ans[3])
         print('predict vcode as : ' + str(ans))
     form_str += 'button='
     return form_str
@@ -80,6 +80,6 @@ def build_login_form(html_text, userinfo, session_id):
 if __name__ == '__main__':
     with open('1.html', 'r', encoding='utf-8') as f:
         text = f.read()
-    a = get_login_info(text)
-    get_info(text.replace('</br>', '').replace('<br/>', ''))
+    a = parse_login_info(text)
+    parse_checkin_info(text.replace('</br>', '').replace('<br/>', ''))
     # get_info('<div><div id="user_info">123</div></div>')
