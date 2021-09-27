@@ -102,6 +102,7 @@ def build_report_form(token, userinfo):
     return form_str
 
 
+# 自动打卡主程序 成功打卡返回0
 def auto_checkin(userinfo):
     print_with_time(userinfo['username'] + ' checkin start')
     header = {
@@ -167,7 +168,7 @@ def auto_checkin(userinfo):
     except BaseException as e:
         print_with_time('{0} authentication failed'.format(userinfo['username']))
         print1(e)
-        exit(1)
+        return 1
     print_with_time('{0} authentication success'.format(userinfo['username']))
 
     header['Host'] = 'weixine.ustc.edu.cn'
@@ -257,7 +258,7 @@ def auto_checkin(userinfo):
 
     print_with_time('{0} last check in : {1}'.format(info['uid'], info['time']))
     print_with_time('{0} checkin finished'.format(userinfo['username']))
-    exit(0)
+    return 0
 
 
 if __name__ == '__main__':
@@ -274,11 +275,11 @@ if __name__ == '__main__':
                 i = int(arg)
                 users = load_users(path)
                 print_with_time(str(len(users)) + ' user(s) found in ' + path)
-                auto_checkin(users[i])
+                exit(auto_checkin(users[i]))
             if opt in ('-u'):
                 bs = bytes(arg.encode('utf-8'))
                 info_str = str(base64.b64decode(bs), encoding='utf-8')
-                auto_checkin(parse_info_str(info_str))
+                exit(auto_checkin(parse_info_str(info_str)))
 
     else:
         users = load_users(path)
