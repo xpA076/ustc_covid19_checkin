@@ -4,6 +4,7 @@
 /.pycache
 /__pycache__
 /images
+keys.txt
 
 *.html
 *.log
