@@ -19,7 +19,14 @@ def parse_checkin_info(html_text):
         bs = BeautifulSoup(bs_text, features="html.parser")
         forms = bs.find_all(name='form')
         token = forms[0].find_all('input', {'name': '_token'})[0]['value']
-        time = forms[0].find_all('strong')[1].text[8:27]
+
+        time = 'not found'
+        strongs = forms[0].find_all('strong')
+        for strong in strongs:
+            if '上次上报时间' in strong.text:
+                time = strong.text[8:27]
+        # time = forms[0].find_all('strong')[1].text[8:27]
+
         name = forms[1].find('input', {'name': 'name'})['value']
         uid = forms[1].find('input', {'name': 'xuegonghao'})['value']
         phone_num = forms[1].find('input', {'name': 'mobile'})['value']
@@ -30,6 +37,34 @@ def parse_checkin_info(html_text):
             'uid': uid,
             'phone_num': phone_num
         }
+    except BaseException:
+        return None
+
+
+def parse_apply_info(html_text):
+    bs_text = html_text.replace('</br>', '').replace('<br/>', '')
+    try:
+        bs = BeautifulSoup(bs_text, features="html.parser")
+        ps = bs.find_all('p')
+        is_able_apply = False
+        for p in ps:
+            if '你的当前状态：在校已出校报备' in p.text:
+                is_able_apply = True
+        if is_able_apply:
+            forms = bs.find_all(name='form')
+            start_date = forms[0].find_all('input', {'name': 'start_date'})[0]['value']
+            end_date = forms[0].find_all('input', {'name': 'end_date'})[0]['value']
+            token = forms[0].find_all('input', {'name': '_token'})[0]['value']
+            return {
+                'is_able_apply': is_able_apply,
+                'token': token,
+                'start_date': start_date,
+                'end_date': end_date
+            }
+        else:
+            return {
+                'is_able_apply': is_able_apply,
+            }
     except BaseException:
         return None
 

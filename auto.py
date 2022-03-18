@@ -1,13 +1,34 @@
 import requests
 import re
 import time
+import datetime
 import sys
 import getopt
 import base64
+import random
 from html_parser import *
 
-
 User_Agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36'
+
+
+def db_find_apply_date(username):
+    with open('db.dat', 'rb') as rdb:
+        rbs = rdb.read()
+        for ib in range(0, len(rbs), 18):
+            if str(rbs[ib:ib + 10], 'utf-8') == username:
+                return str(rbs[ib + 10:ib + 18], 'utf-8')
+    return ''
+
+
+def db_set_apply_date(username, date_str):
+    with open('db.dat', 'rb') as rdb:
+        rbs = rdb.read()
+    with open('db.dat', 'wb') as wdb:
+        for ib in range(0, len(rbs), 18):
+            if str(rbs[ib:ib + 10], 'utf-8') == username:
+                wdb.write(bytes(date_str, 'utf-8'))
+                return
+        wdb.write(bytes(username + date_str, 'utf-8'))
 
 
 def print1(line):
@@ -16,7 +37,7 @@ def print1(line):
 
 def parse_info_str(line):
     spl = line.split(',')
-    return {
+    base_info = {
         'username': spl[0],
         'password': spl[1],
         'now_status': spl[2],
@@ -24,7 +45,14 @@ def parse_info_str(line):
         'emg_name': spl[4],
         'emg_relation': spl[5],
         'emg_mobile': spl[6],
+        'last_apply': ''
     }
+
+    if len(spl) == 7:
+        return base_info
+    else:
+        base_info['last_apply'] = spl[7]
+        return base_info
 
 
 def load_users(_path):
@@ -53,8 +81,16 @@ def print_with_time(print_text):
         log_f.write(whole_str + '\n')
 
 
-
-
+juzhudi_map = {
+    '1-2': '东校区',
+    '1-3': '南校区',
+    '1-4': '中校区',
+    '1-5': '北校区',
+    '1-6': '西校区',
+    '1-7': '先研院',
+    '1-8': '国金院',
+    '2-0': '合肥市内校外'
+}
 
 
 # now_status 对应当前状态:
@@ -67,32 +103,52 @@ def build_report_form(token, userinfo):
     now_province = postcode[0:2] + '0000'
     now_city = postcode[0:4] + '00'
     now_country = postcode
-    form_dict = {
-        '_token': token,
-        'now_address': '1',  # 内地
-        'gps_now_address': '',
-        'now_province': now_province,
-        'gps_province': '',
-        'now_city': now_city,
-        'gps_city': '',
-        'now_country': now_country,
-        'gps_country': '',
-        'now_detail': '',
-        'body_condition': '1',
-        'body_condition_detail': '',
-        'now_status': now_status.split('-')[0],
-        'now_status_detail': '',
-        'has_fever': '0',
-        'last_touch_sars': '0',
-        'last_touch_sars_date': '',
-        'last_touch_sars_detail': '',
-        'is_danger': '0',
-        'is_goto_danger': '0',
-        'jinji_lxr': userinfo['emg_name'],
-        'jinji_guanxi': userinfo['emg_relation'],
-        'jiji_mobile': userinfo['emg_mobile'],
-        'other_detail': ''
-    }
+    if userinfo['now_status'] in juzhudi_map:
+        form_dict = {
+            '_token': token,
+            'juzhudi': juzhudi_map[userinfo['now_status']],
+            'body_condition': '1',
+            'body_condition_detail': '',
+            'now_status': now_status.split('-')[0],
+            'now_status_detail': '',
+            'has_fever': '0',
+            'last_touch_sars': '0',
+            'last_touch_sars_date': '',
+            'last_touch_sars_detail': '',
+            'is_danger': '0',
+            'is_goto_danger': '0',
+            'jinji_lxr': userinfo['emg_name'],
+            'jinji_guanxi': userinfo['emg_relation'],
+            'jiji_mobile': userinfo['emg_mobile'],
+            'other_detail': ''
+        }
+    else:
+        form_dict = {
+            '_token': token,
+            'now_address': '1',  # 内地
+            'gps_now_address': '',
+            'now_province': now_province,
+            'gps_province': '',
+            'now_city': now_city,
+            'gps_city': '',
+            'now_country': now_country,
+            'gps_country': '',
+            'now_detail': '',
+            'body_condition': '1',
+            'body_condition_detail': '',
+            'now_status': now_status.split('-')[0],
+            'now_status_detail': '',
+            'has_fever': '0',
+            'last_touch_sars': '0',
+            'last_touch_sars_date': '',
+            'last_touch_sars_detail': '',
+            'is_danger': '0',
+            'is_goto_danger': '0',
+            'jinji_lxr': userinfo['emg_name'],
+            'jinji_guanxi': userinfo['emg_relation'],
+            'jiji_mobile': userinfo['emg_mobile'],
+            'other_detail': ''
+        }
     form_str = ''
     for k in form_dict.keys():
         form_str = form_str + k + '=' + form_dict[k] + '&'
@@ -100,6 +156,11 @@ def build_report_form(token, userinfo):
             form_str = form_str + 'is_inschool=' + now_status.split('-')[1] + '&'
     form_str = form_str[0:-1]
     return form_str
+
+
+def build_apply_form(info_apply):
+    return '_token={0}&start_date={1}&end_date={2}' \
+        .format(info_apply['token'], info_apply['start_date'], info_apply['end_date'])
 
 
 # 自动打卡主程序 成功打卡返回0
@@ -159,7 +220,8 @@ def auto_checkin(userinfo):
     header_post['Content-Type'] = 'application/x-www-form-urlencoded'
     header_post['Origin'] = 'https://passport.ustc.edu.cn'
     print1('Posting ' + url + ' ...')
-    resp = requests.post(url, data=login_form_str, headers=header_post, cookies=cookie_dict_passport, allow_redirects=False)
+    resp = requests.post(url, data=login_form_str, headers=header_post, cookies=cookie_dict_passport,
+                         allow_redirects=False)
     # response 302, header的location项中含名为ticket的token, 和 weixine 下的 cookie 一起提交完成身份验证
     try:
         url = resp.headers['location']
@@ -203,7 +265,7 @@ def auto_checkin(userinfo):
 
     # 获取页面 form 中 x_csrf_token 等相关信息
     info = parse_checkin_info(resp.text)
-    print_with_time('{0} last check in : {1}, token : {2}'.format(info['uid'], info['time'], info['token']))
+    # print_with_time('{0} last check in : {1}, token : {2}'.format(info['uid'], info['time'], info['token']))
 
     # 模拟网页的两个ajax请求
     header_ajax = {
@@ -237,8 +299,8 @@ def auto_checkin(userinfo):
     # 提交 daily_report
     # 是的没有拼错 daliy_report, :-)
     url = 'https://weixine.ustc.edu.cn/2020/daliy_report'
+    header['Sec-Fetch-Site'] = 'same-origin'
     header_report = header.copy()
-    header_report['Sec-Fetch-Site'] = 'same-origin'
     header_report['Referer'] = 'https://weixine.ustc.edu.cn/2020/home'
     header_report['Origin'] = 'https://weixine.ustc.edu.cn'
     header_report['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -256,8 +318,52 @@ def auto_checkin(userinfo):
     cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
     info = parse_checkin_info(resp.text)
 
-    print_with_time('{0} last check in : {1}'.format(info['uid'], info['time']))
     print_with_time('{0} checkin finished'.format(userinfo['username']))
+    print_with_time('{0} last check in : {1}'.format(info['uid'], info['time']))
+
+    # 出校报备
+    '''
+    if userinfo['last_apply'] != '':
+        ds = userinfo['last_apply']
+        day_last = datetime.datetime(int(ds[0:4]), int(ds[4:6]), int(ds[6:8]))
+        delta = datetime.datetime.now() - day_last
+        if delta >= 0:
+            print_with_time('{0} need apply post'.format(userinfo['username']))
+            # 获取报备页面
+            url = 'https://weixine.ustc.edu.cn/2020/apply/daliy'
+            print1('Getting ' + url + ' ...')
+            resp = requests.get(url, headers=header, cookies=cookies_checkin, allow_redirects=False)
+            cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
+            info_apply = parse_apply_info(resp.text)
+            # 确定页面状态可以报备
+            if info_apply is None:
+                print_with_time('{0} parse html error'.format(userinfo['username']))
+            elif not info_apply['is_able_apply']:
+                print_with_time('{0} is not able to apply'.format(userinfo['username']))
+            else:
+                # 提交报备post
+                url = 'https://weixine.ustc.edu.cn/2020/apply/daily/post'
+                header_apply = header.copy()
+                header_apply['Referer'] = 'https://weixine.ustc.edu.cn/2020/apply/daliy'
+                header_apply['Origin'] = 'https://weixine.ustc.edu.cn'
+                header_apply['Content-Type'] = 'application/x-www-form-urlencoded'
+                apply_data = build_apply_form(info_apply)
+                print1('Posting ' + url + ' ...')
+                resp = requests.post(url, data=apply_data, headers=header_apply,
+                                     cookies=cookies_checkin, allow_redirects=False)
+                cookies_checkin = update_cookies(cookies_checkin, resp.cookies.get_dict().items())
+                try:
+                    if resp.headers['location'] == 'https://weixine.ustc.edu.cn/2020/apply_total?t=d':
+                        print_with_time('{0} apply success, authorization due : {1}'
+                                        .format(userinfo['username'], info_apply['end_date']))
+                    else:
+                        raise ValueError
+                except BaseException:
+                    print_with_time('{0} apply failed'.format(userinfo['username']))
+        else:
+            print_with_time('{0} not need apply post'.format(userinfo['username']))
+'''
+
     return 0
 
 
@@ -284,7 +390,8 @@ if __name__ == '__main__':
     else:
         users = load_users(path)
         print_with_time(str(len(users)) + ' user(s) found in ' + path)
+        time.sleep(random.randint(5, 30))
         for i in range(len(users)):
             auto_checkin(users[i])
             if i < len(users) - 1:
-                time.sleep(60)
+                time.sleep(random.randint(30, 90))
