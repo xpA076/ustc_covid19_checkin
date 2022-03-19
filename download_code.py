@@ -2,11 +2,12 @@ import requests
 import time
 import cv2
 import os
-from auto import User_Agent
+
 
 # 2021.09.14 19:05
 
 url = 'https://passport.ustc.edu.cn/validatecode.jsp?type=login'
+User_Agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36'
 
 
 

@@ -367,6 +367,18 @@ def auto_checkin(userinfo):
     return 0
 
 
+def gen_queue(length):
+    ls = [0] * length
+    for ii in range(length):
+        ls[ii] = ii
+    for p in range(length - 1, 0, -1):
+        sw = ls[p]
+        pt = random.randint(0, p - 1)
+        ls[p] = ls[pt]
+        ls[pt] = sw
+    return ls
+
+
 if __name__ == '__main__':
     path = 'keys.txt'
 
@@ -391,7 +403,7 @@ if __name__ == '__main__':
         users = load_users(path)
         print_with_time(str(len(users)) + ' user(s) found in ' + path)
         time.sleep(random.randint(5, 30))
-        for i in range(len(users)):
+        q = gen_queue(len(users))
+        for i in q:
             auto_checkin(users[i])
-            if i < len(users) - 1:
-                time.sleep(random.randint(30, 90))
+            time.sleep(random.randint(30, 90))
