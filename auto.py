@@ -97,58 +97,60 @@ juzhudi_map = {
 #   1-正常在校园内, 2-正常在家, 3-居家留观, 4-集中留观, 5-住院治疗, 6-其它
 # 若地址编号为 340100(合肥), 需添加在校信息：
 #   2-东区, 3-南区, 4-中区, 5-北区, 6-西区, 7-先研院, 8-国金院, 9-其他院区, 0-校外
-def build_report_form(token, userinfo):
+def build_report_form(checkin_page_info, userinfo):
     postcode = userinfo['postcode']
     now_status = userinfo['now_status']
     now_province = postcode[0:2] + '0000'
     now_city = postcode[0:4] + '00'
     now_country = postcode
-    if userinfo['now_status'] in juzhudi_map:
-        form_dict = {
-            '_token': token,
-            'juzhudi': juzhudi_map[userinfo['now_status']],
-            'body_condition': '1',
-            'body_condition_detail': '',
-            'now_status': now_status.split('-')[0],
-            'now_status_detail': '',
-            'has_fever': '0',
-            'last_touch_sars': '0',
-            'last_touch_sars_date': '',
-            'last_touch_sars_detail': '',
-            'is_danger': '0',
-            'is_goto_danger': '0',
-            'jinji_lxr': userinfo['emg_name'],
-            'jinji_guanxi': userinfo['emg_relation'],
-            'jiji_mobile': userinfo['emg_mobile'],
-            'other_detail': ''
-        }
-    else:
-        form_dict = {
-            '_token': token,
-            'now_address': '1',  # 内地
-            'gps_now_address': '',
-            'now_province': now_province,
-            'gps_province': '',
-            'now_city': now_city,
-            'gps_city': '',
-            'now_country': now_country,
-            'gps_country': '',
-            'now_detail': '',
-            'body_condition': '1',
-            'body_condition_detail': '',
-            'now_status': now_status.split('-')[0],
-            'now_status_detail': '',
-            'has_fever': '0',
-            'last_touch_sars': '0',
-            'last_touch_sars_date': '',
-            'last_touch_sars_detail': '',
-            'is_danger': '0',
-            'is_goto_danger': '0',
-            'jinji_lxr': userinfo['emg_name'],
-            'jinji_guanxi': userinfo['emg_relation'],
-            'jiji_mobile': userinfo['emg_mobile'],
-            'other_detail': ''
-        }
+    form_dict = {
+        '_token': checkin_page_info['token'],
+        'juzhudi': checkin_page_info['location'],
+        'dorm_building': checkin_page_info['dorm_b'],
+        'dorm': checkin_page_info['dorm_n'],
+        'body_condition': '1',
+        'body_condition_detail': '',
+        'now_status': now_status.split('-')[0],
+        'now_status_detail': '',
+        'has_fever': '0',
+        'last_touch_sars': '0',
+        'last_touch_sars_date': '',
+        'last_touch_sars_detail': '',
+        'is_danger': '0',
+        'is_goto_danger': '0',
+        'jinji_lxr': userinfo['emg_name'],
+        'jinji_guanxi': userinfo['emg_relation'],
+        'jiji_mobile': userinfo['emg_mobile'],
+        'other_detail': ''
+    }
+    '''
+    form_dict = {
+        '_token': token,
+        'now_address': '1',  # 内地
+        'gps_now_address': '',
+        'now_province': now_province,
+        'gps_province': '',
+        'now_city': now_city,
+        'gps_city': '',
+        'now_country': now_country,
+        'gps_country': '',
+        'now_detail': '',
+        'body_condition': '1',
+        'body_condition_detail': '',
+        'now_status': now_status.split('-')[0],
+        'now_status_detail': '',
+        'has_fever': '0',
+        'last_touch_sars': '0',
+        'last_touch_sars_date': '',
+        'last_touch_sars_detail': '',
+        'is_danger': '0',
+        'is_goto_danger': '0',
+        'jinji_lxr': userinfo['emg_name'],
+        'jinji_guanxi': userinfo['emg_relation'],
+        'jiji_mobile': userinfo['emg_mobile'],
+        'other_detail': ''
+    }
+    '''
     form_str = ''
     for k in form_dict.keys():
         form_str = form_str + k + '=' + form_dict[k] + '&'
@@ -286,6 +288,7 @@ def auto_checkin(userinfo):
         'Accept-Language': 'zh,en-US;q=0.9,en;q=0.8,zh-CN;q=0.7'
     }
 
+
     url = 'https://weixine.ustc.edu.cn/2020/get_province'
     print1('Ajax ' + url + ' ...')
     resp = requests.post(url, headers=header_ajax, cookies=cookies_checkin)
@@ -305,7 +308,7 @@ def auto_checkin(userinfo):
     header_report['Origin'] = 'https://weixine.ustc.edu.cn'
     header_report['Content-Type'] = 'application/x-www-form-urlencoded'
     # 填写表单 data
-    report_data = build_report_form(info['token'], userinfo)
+    report_data = build_report_form(info, userinfo)
     print1('Posting ' + url + ' ...')
     resp = requests.post(url, data=report_data.encode('utf-8'), headers=header_report, cookies=cookies_checkin,
                          allow_redirects=False)

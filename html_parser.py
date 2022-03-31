@@ -19,7 +19,9 @@ def parse_checkin_info(html_text):
         bs = BeautifulSoup(bs_text, features="html.parser")
         forms = bs.find_all(name='form')
         token = forms[0].find_all('input', {'name': '_token'})[0]['value']
-
+        location = forms[0].find_all('input', {'name': 'juzhudi'})[0]['value']
+        dorm_b = forms[0].find_all('input', {'name': 'dorm_building'})[0]['value']
+        dorm_n = forms[0].find_all('input', {'name': 'dorm'})[0]['value']
         time = 'not found'
         strongs = forms[0].find_all('strong')
         for strong in strongs:
@@ -32,6 +34,9 @@ def parse_checkin_info(html_text):
         phone_num = forms[1].find('input', {'name': 'mobile'})['value']
         return {
             'token': token,
+            'location': location,
+            'dorm_b': dorm_b,
+            'dorm_n': dorm_n,
             'time': time,
             'name': name,
             'uid': uid,
